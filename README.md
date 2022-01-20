@@ -22,9 +22,10 @@ NAPALM driver for H3C/HPE Comware V7 network devices.
 - :white_check_mark: get_facts()
 - :white_check_mark: get_vlans()
 - :white_check_mark: get_arp_table()
+- :white_check_mark: get_interfaces()
 
 
-# Useage
+# Getting Started
 
 ...
 

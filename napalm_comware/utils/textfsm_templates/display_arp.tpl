@@ -1,5 +1,5 @@
-Value IPADDRESS (\d+.\d+.\d+.\d+)
-Value MACADDRESS (\w+-\w+-\w+)
+Value IP_ADDRESS (\d+.\d+.\d+.\d+)
+Value MAC_ADDRESS (\w+-\w+-\w+)
 Value VLAN (\S+|\d+)
 Value INTERFACE (\S+)
 Value AGING (\d+)
@@ -9,5 +9,5 @@ Start
   ^IP\s+address.* -> ARP
 
 ARP
-  ^${IPADDRESS}\s+${MACADDRESS}\s+${VLAN}\s+${INTERFACE}\s+${AGING}\s+${TYPE} -> Record
+  ^${IP_ADDRESS}\s+${MAC_ADDRESS}\s+${VLAN}\s+${INTERFACE}\s+${AGING}\s+${TYPE} -> Record
   
