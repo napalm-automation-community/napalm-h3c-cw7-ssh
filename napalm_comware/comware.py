@@ -22,7 +22,6 @@ from __future__ import print_function
 from operator import itemgetter
 from typing import Any, Optional, Dict, List
 import re
-from netmiko import ConnectHandler
 from netmiko.hp.hp_comware import HPComwareBase
 from napalm.base.base import NetworkDriver
 from napalm.base.exceptions import (
@@ -38,17 +37,12 @@ from napalm.base.netmiko_helpers import netmiko_args
 from .utils.helpers import (
     canonical_interface_name_comware,
     parse_time,
+    parse_null,
 )
 
 
-MINUTE_SECONDS = 60
-HOUR_SECONDS = 60 * MINUTE_SECONDS
-DAY_SECONDS = 24 * HOUR_SECONDS
-WEEK_SECONDS = 7 * DAY_SECONDS
-
-
 class ComwareDriver(NetworkDriver):
-    """Napalm driver for HP/H3C Comware7 (using ssh)."""
+    """Napalm driver for H3C/HP Comware7 network devices (using ssh)."""
 
     def __init__(
             self,
@@ -57,14 +51,7 @@ class ComwareDriver(NetworkDriver):
             password: str,
             timeout: int = 100,
             optional_args: Optional[Dict] = None):
-        """
-        :param hostname: (str) IP or FQDN of the device you want to connect to.
-        :param username: (str) Username you want to use
-        :param password: (str) Password
-        :param timeout: (int) Time in seconds to wait for the device to respond.
-        :param optional_args: (dict) Pass additional arguments to underlying driver
-        :return:
-        """
+
         self.device = None
         if optional_args is None:
             optional_args = {}
@@ -87,21 +74,8 @@ class ComwareDriver(NetworkDriver):
     def send_command(self, command, *args, **kwargs):
         return self.device.send_command(command, *args, **kwargs)
 
-    def cli(self, commands: List):
-
-        cli_output = dict()
-
-        if type(commands) is not list:
-            raise TypeError("Please enter a valid list of commands!")
-
-        for command in commands:
-            output = self.device.send_command(command)
-            cli_output.setdefault(command, {})
-            cli_output[command] = output
-
-        return cli_output
-
     #
+
     def is_alive(self):
         if self.device is None:
             return {"is_alive": False}
@@ -109,6 +83,9 @@ class ComwareDriver(NetworkDriver):
             return {"is_alive": self.device.is_alive()}
 
     def _get_structured_output(self, command: str, template_name: str = None):
+        """
+        Wrapper for `napalm.base.helpers.textfsm_extractor()`.
+        """
         if template_name is None:
             template_name = "_".join(command.split())
         raw_output = self.send_command(command)
@@ -127,16 +104,10 @@ class ComwareDriver(NetworkDriver):
         structured_sys_info = self._get_structured_output(cmd_sys_info)
         if isinstance(structured_sys_info, list) and len(structured_sys_info) == 1:
             structured_sys_info = structured_sys_info[0]
-            # TODO: 更新一下 textfsm 模板，返回字符串再用 parse_time 解析
-            uptime = (
-                int(structured_sys_info.get("uptime_weeks")) * WEEK_SECONDS
-                + int(structured_sys_info.get("uptime_days")) * DAY_SECONDS
-                + int(structured_sys_info.get("uptime_hours")) * HOUR_SECONDS
-                + int(structured_sys_info.get("uptime_mins")) * MINUTE_SECONDS
-            )
-            vendor = structured_sys_info.get("vendor")
-            model = structured_sys_info.get("model")
-            os_version = structured_sys_info.get("os_version")
+            (uptime_str, vendor, model, os_version) = itemgetter(
+                "uptime", "vendor", "model", "os_version"
+            )(structured_sys_info)
+            uptime = parse_time(uptime_str)
 
         # os_version. format: `Version.Patch`.
         # Example: "Release 2612P01.2612P01H03"
@@ -183,24 +154,100 @@ class ComwareDriver(NetworkDriver):
         }
 
     # ok
-    def get_vlans(self):
-        vlans = {}
-        command = "display vlan all"
-        structured_output = self._get_structured_output(command)
-        for vlan in structured_output:
-            # 默认情况下 vlan_name == vlan_description
-            #   1. 若两者都是默认值或都不是默认值，优先使用 vlan_name
-            #   2. 若两者其中一个不是默认值，优先使用用户自定义的值（非默认值）
-            vlan_name = vlan.get("name")
-            vlan_desc = vlan.get("description")
-            vlans[int(vlan.get("vlan_id"))] = {
-                "name": vlan_desc if "VLAN " not in vlan_desc and "VLAN " in vlan_name else vlan_name,
-                "interfaces": vlan.get("interfaces")
+    def get_interfaces(self):
+        interface_dict = {}
+        structured_int_info = self._get_structured_output("display interface")
+
+        for interface in structured_int_info:
+            # Physical state:
+            #   - Administratively DOWN
+            #   - DOWN
+            #   - UP
+            is_enabled = bool("up" in interface.get("link_status").lower())
+            # Protocol state:
+            #  - UP
+            #  - UP (spoofing)
+            #  - DOWN
+            #  - DOWN(other protocol):such as DOWN(DLDP)、DOWN(LAGG) ...
+            is_up = bool("up" in interface.get("protocol_status").lower())
+
+            (description, speed, mtu, mac_address, last_flapped) = itemgetter(
+                "description", "bandwidth", "mtu", "mac_address", "last_flapping",
+            )(interface)
+
+            # Never flapping: 0
+            # No flapping data: -1
+            # Last flapping: int(seconds)
+            if "never" in last_flapped.lower():
+                last_flapped = 0
+            else:
+                last_flapped = parse_null(last_flapped, -1, parse_time)
+
+            interface_dict[interface.get("interface")] = {
+                "is_enabled": is_enabled,
+                "is_up": is_up,
+                "description": description,
+                "speed": parse_null(speed, -1, int),
+                "mtu": parse_null(mtu, -1, int),
+                "mac_address": parse_null(mac_address, "unknown", mac),
+                "last_flapped": last_flapped,
             }
-        return vlans
+        return interface_dict
+
+    def get_lldp_neighbors(self): ...
+
+    def get_bgp_neighbors(self): ...
+
+    def get_environment(self): ...
+
+    def get_interfaces_counters(self):
+        counters = {}
+        keys = (
+            "tx_errors", "rx_errors", "rx_crc",
+            "tx_discards", "rx_discards",
+            "tx_octets", "rx_octets",
+            "tx_packets", "rx_packets",
+            "tx_unicast_packets", "rx_unicast_packets",
+            "tx_multicast_packets", "rx_multicast_packets",
+            "tx_broadcast_packets", "rx_broadcast_packets",
+        )
+        structured_int_info = self._get_structured_output("display interface")
+
+        for interface in structured_int_info:
+            values = itemgetter(
+                "tx_errors", "rx_errors", "rx_crc",
+                "tx_aborts", "rx_aborts",
+                "tx_bytes", "rx_bytes",
+                "tx_pkts", "rx_pkts",
+                "tx_unicast", "rx_unicast",
+                "tx_multicast", "rx_multicast",
+                "tx_broadcast", "rx_broadcast",
+            )(interface)
+
+            values = (parse_null(value, -1, int) for value in values)
+            counters[interface.get("interface")] = dict(zip(keys, values))
+
+        return counters
+
+    def get_lldp_neighbors_detail(self, interface=""): ...
+
+    def cli(self, commands: List):
+
+        cli_output = dict()
+
+        if type(commands) is not list:
+            raise TypeError("Please enter a valid list of commands!")
+
+        for command in commands:
+            output = self.device.send_command(command)
+            cli_output.setdefault(command, {})
+            cli_output[command] = output
+
+        return cli_output
 
     # ok
-    def get_arp_table(self, vrf=""):
+
+    def get_arp_table(self, vrf: str = ""):
         arp_table = []
         if vrf:
             command = "display arp vpn-instance %s" % (vrf)
@@ -217,51 +264,55 @@ class ComwareDriver(NetworkDriver):
             arp_table.append(entry)
         return arp_table
 
+    def get_interfaces_ip(self): ...
+
+    def get_mac_address_table(self): ...
+
+    def get_route_to(self, destination="", protocol="", longer=False): ...
+
+    def get_config(self, retrieve="all", full=False, sanitized=False): ...
+
+    def get_network_instances(self, name=""): ...
+
     # ok
-    def get_interfaces(self):
+    def get_vlans(self):
         """
-        """
-        interface_dict = {}
-        structured_int_info = self._get_structured_output("display interface")
+        Return structure being spit balled is as follows.
+            * vlan_id (int)
+                * name (text_type)
+                * interfaces (list)
 
-        for interface in structured_int_info:
-            # Physical state: 
-            #   - Administratively DOWN
-            #   - DOWN
-            #   - UP
-            is_enabled = bool("up" in interface.get("link_status").lower())
-            # Protocol state: 
-            #  - UP
-            #  - UP (spoofing)
-            #  - DOWN
-            #  - DOWN(other protocol):such as DOWN(DLDP)、DOWN(LAGG) ...
-            is_up = bool("up" in interface.get("protocol_status").lower())
+        By default, `vlan_name` == `vlan_description`. If both are default or not, \
+        use `vlan_name`. If one of them is not the default value, use user-configured \
+        value.
 
-            (description, speed, mtu, mac_address, last_flapped) = itemgetter(
-                "description", "bandwidth", "mtu", "mac_address", "last_flapping",
-            )(interface)
+        Example::
 
-            # Never flapping: 0
-            # No flapping data: -1
-            # Last flapping: int(seconds)
-            if "never" in last_flapped.lower():
-                last_flapped = 0
-            elif last_flapped == "":
-                last_flapped = -1
-            else:
-                last_flapped = parse_time(last_flapped)
-
-            interface_dict[interface.get("interface")] = {
-                "is_enabled": is_enabled,
-                "is_up": is_up,
-                "description": description,
-                "speed": -1 if speed == "" else int(speed),
-                "mtu": -1 if mtu == "" else int(mtu),
-                "mac_address": "unknown" if mac_address == "" else mac(mac_address),
-                "last_flapped": last_flapped,
+            {
+                1: {
+                    "name": "default",
+                    "interfaces": ["GigabitEthernet0/0/1", "GigabitEthernet0/0/2"]
+                },
+                2: {
+                    "name": "vlan2",
+                    "interfaces": []
+                }
             }
-        return interface_dict
+        """
+        vlans = {}
+        command = "display vlan all"
+        structured_output = self._get_structured_output(command)
+        for vlan in structured_output:
+            vlan_name = vlan.get("name")
+            vlan_desc = vlan.get("description")
+            vlans[int(vlan.get("vlan_id"))] = {
+                "name": vlan_desc if "VLAN " not in vlan_desc and "VLAN " in vlan_name else vlan_name,
+                "interfaces": vlan.get("interfaces")
+            }
+        return vlans
 
     def is_irf(self):
-
+        """
+        Returns True if the IRF is setup.
+        """
         ...

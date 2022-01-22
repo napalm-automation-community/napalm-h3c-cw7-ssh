@@ -34,6 +34,8 @@ comware_interfaces = {
     "Ser": "Serial",
     "Dia": "Dialer",
     "Reth": "Reth",
+    "Vsi": "Vsi-interface",
+    "WGE": "Twenty-FiveGigE",
 
 }
 
@@ -54,7 +56,7 @@ def _search(unit, time_str):
 
 def parse_time(time_str):
     """"""
-    units = ["years", "weeks", "days", "hours", "minutes", "seconds"]
+    units = ["year", "week", "day", "hour", "minute", "second"]
 
     (years, weeks, days, hours, minutes, seconds) = (
         _search(unit, time_str) for unit in units)
@@ -68,3 +70,11 @@ def parse_time(time_str):
         + seconds
     )
     return time_sec
+
+
+def parse_null(value, default, func=None, *args, **kwargs):
+    if value == "":
+        return default
+    if func:
+        return func(value, *args, **kwargs)
+    return value
