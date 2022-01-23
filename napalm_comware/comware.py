@@ -39,6 +39,7 @@ from .utils.helpers import (
     canonical_interface_name_comware,
     parse_time,
     parse_null,
+    strptime,
 )
 
 
@@ -74,8 +75,6 @@ class ComwareDriver(NetworkDriver):
 
     def send_command(self, command, *args, **kwargs):
         return self.device.send_command(command, *args, **kwargs)
-
-    #
 
     def is_alive(self):
         if self.device is None:
@@ -242,7 +241,7 @@ class ComwareDriver(NetworkDriver):
 
     def get_lldp_neighbors_detail(self, interface=""):
         lldp = {}
-        # parent_interface not supported
+        # `parent_interface` is not supported
         parent_interface = ""
 
         if interface:
@@ -318,7 +317,60 @@ class ComwareDriver(NetworkDriver):
 
     def get_interfaces_ip(self): ...
 
-    def get_mac_address_table(self): ...
+    def get_mac_address_move_table(self):
+        mac_address_move_table = []
+        command = "display mac-address mac-move"
+        structured_output = self._get_structured_output(command)
+        for mac_move_entry in structured_output:
+            (mac_address, vlan, current_port, source_port, last_move, moves,) = itemgetter(
+                "mac_address", "vlan", "current_port", "source_port", "last_move", "times",
+            )(mac_move_entry)
+            entry = {
+                "mac": mac(mac_address),
+                "vlan": int(vlan),
+                "current_port": canonical_interface_name_comware(current_port),
+                "source_port": canonical_interface_name_comware(source_port),
+                "last_move": last_move,
+                "moves": int(moves),
+            }
+            mac_address_move_table.append(entry)
+
+        return mac_address_move_table
+
+    def get_mac_address_table(self):
+        mac_address_table = []
+        command = "display mac-address"
+        structured_output = self._get_structured_output(command)
+        mac_address_move_table = self.get_mac_address_move_table()
+
+        def _get_mac_move(mac_address, mac_address_move_table):
+            last_move = float(-1)
+            moves = -1
+            for mac_move in mac_address_move_table:
+                if mac_address == mac_move.get("mac_address"):
+                    last_move = strptime(mac_move.get("last_move"))
+                    moves = mac_move.get("times")
+            return {
+                "last_move": float(last_move),
+                "moves": int(moves)
+            }
+
+        for mac_entry in structured_output:
+            (mac_address, vlan, state, interface) = itemgetter(
+                "mac_address", "vlan", "state", "interface"
+            )(mac_entry)
+            entry = {
+                "mac": mac(mac_address),
+                "interface": canonical_interface_name_comware(interface),
+                "vlan": int(vlan),
+                "static": True if "tatic" in state.lower() else False,
+                "state": state,
+                "active": True,
+            }
+            entry.update(_get_mac_move(mac_address, mac_address_move_table))
+            mac_address_table.append(entry)
+
+        return mac_address_table
 
     def get_route_to(self, destination="", protocol="", longer=False): ...
 

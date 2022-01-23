@@ -14,6 +14,7 @@
 """Helper functions for the ComwareDriver."""
 
 import re
+import time
 from napalm.base.helpers import canonical_interface_name
 
 
@@ -78,3 +79,9 @@ def parse_null(value, default, func=None, *args, **kwargs):
     if func:
         return func(value, *args, **kwargs)
     return value
+
+
+def strptime(time_str):
+    timeArray = time.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    timestamp = time.mktime(timeArray)
+    return timestamp
