@@ -20,6 +20,7 @@ Read https://napalm.readthedocs.io for more information.
 
 from __future__ import print_function
 from operator import itemgetter
+from collections import defaultdict
 from typing import Any, Optional, Dict, List
 import re
 from netmiko.hp.hp_comware import HPComwareBase
@@ -311,8 +312,39 @@ class ComwareDriver(NetworkDriver):
             }
         return vlans
 
+    def get_irf_config(self):
+        """
+        Returns a dictionary of dictionaries where the first key is irf member ID, 
+        and the internal dictionary uses the irf port type as the key and port member as the value.
+
+        Example::
+            {
+                1: {
+                    'irf-port1': ['FortyGigE1/0/53', 'FortyGigE1/0/54'],
+                    'irf-port2': [],
+                }
+                2: {
+                    'irf-port1': [],
+                    'irf-port2': ['FortyGigE2/0/53', 'FortyGigE2/0/54'],
+                }
+            }
+        """
+        irf_config = defaultdict(dict)
+        command = "display current-configuration configuration irf-port"
+        structured_output = self._get_structured_output(command)
+        for config in structured_output:
+            (member_id, port_id, port_member) = itemgetter(
+                "member_id", "port_id", "port_member"
+            )(config)
+            irf_config[int(member_id)]["irf-port%s" % port_id] = port_member
+        return irf_config
+
     def is_irf(self):
         """
         Returns True if the IRF is setup.
         """
-        ...
+        config = self.get_irf_config()
+        if config:
+            return {"is_irf": True}
+        else:
+            return {"is_irf": False}
