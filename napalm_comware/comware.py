@@ -93,7 +93,6 @@ class ComwareDriver(NetworkDriver):
         result = textfsm_extractor(self, template_name, raw_output)
         return result
 
-    # ok
     def get_facts(self):
         # default values.
         vendor = "Comware"
@@ -154,7 +153,6 @@ class ComwareDriver(NetworkDriver):
             "interface_list": interface_list,
         }
 
-    # ok
     def get_interfaces(self):
         interface_dict = {}
         structured_int_info = self._get_structured_output("display interface")
@@ -195,7 +193,19 @@ class ComwareDriver(NetworkDriver):
             }
         return interface_dict
 
-    def get_lldp_neighbors(self): ...
+    def get_lldp_neighbors(self):
+        lldp = {}
+        command = "display lldp neighbor-information verbose"
+        structured_output = self._get_structured_output(command)
+        for entry in structured_output:
+            (local_interface, remote_system_name, remote_port) = itemgetter(
+                "local_interface", "remote_system_name", "remote_port"
+            )(entry)
+            lldp[local_interface] = [{
+                "hostname": remote_system_name,
+                "port": remote_port
+            }]
+        return lldp
 
     def get_bgp_neighbors(self): ...
 
@@ -230,7 +240,50 @@ class ComwareDriver(NetworkDriver):
 
         return counters
 
-    def get_lldp_neighbors_detail(self, interface=""): ...
+    def get_lldp_neighbors_detail(self, interface=""):
+        lldp = {}
+        # parent_interface not supported
+        parent_interface = ""
+
+        if interface:
+            command = "display lldp neighbor-information interface %s verbose" % (
+                interface)
+        else:
+            command = "display lldp neighbor-information verbose"
+
+        structured_output = self._get_structured_output(
+            command, "display_lldp_neighbor-information_verbose")
+
+        for entry in structured_output:
+            (local_interface,
+             remote_port,
+             remote_port_description,
+             remote_chassis_id,
+             remote_system_name,
+             remote_system_description,
+             remote_system_capab,
+             remote_system_enabled_capab) = itemgetter(
+                "local_interface",
+                "remote_port",
+                "remote_port_desc",
+                "remote_chassis_id",
+                "remote_system_name",
+                "remote_system_desc",
+                "remote_system_capab",
+                "remote_system_enabled_capab")(entry)
+
+            lldp[local_interface] = [{
+                "parent_interface": parent_interface,
+                "remote_port": remote_port,
+                "remote_port_description": remote_port_description,
+                "remote_chassis_id": remote_chassis_id,
+                "remote_system_name": remote_system_name,
+                "remote_system_description": "".join(remote_system_description),
+                "remote_system_capab": [i.strip() for i in remote_system_capab.split(",")],
+                "remote_system_enabled_capab": [i.strip() for i in remote_system_enabled_capab.split(",")],
+            }]
+
+        return lldp
 
     def cli(self, commands: List):
 
@@ -245,8 +298,6 @@ class ComwareDriver(NetworkDriver):
             cli_output[command] = output
 
         return cli_output
-
-    # ok
 
     def get_arp_table(self, vrf: str = ""):
         arp_table = []
@@ -275,7 +326,6 @@ class ComwareDriver(NetworkDriver):
 
     def get_network_instances(self, name=""): ...
 
-    # ok
     def get_vlans(self):
         """
         Return structure being spit balled is as follows.
