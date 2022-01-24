@@ -196,14 +196,20 @@ class ComwareDriver(NetworkDriver):
         lldp = {}
         command = "display lldp neighbor-information verbose"
         structured_output = self._get_structured_output(command)
-        for entry in structured_output:
+        for lldp_entry in structured_output:
             (local_interface, remote_system_name, remote_port) = itemgetter(
                 "local_interface", "remote_system_name", "remote_port"
-            )(entry)
-            lldp[local_interface] = [{
-                "hostname": remote_system_name,
-                "port": remote_port
-            }]
+            )(lldp_entry)
+            if lldp.get(local_interface) is None:
+                lldp[local_interface] = [{
+                    "hostname": remote_system_name,
+                    "port": remote_port
+                }]
+            else:
+                lldp[local_interface].append({
+                    "hostname": remote_system_name,
+                    "port": remote_port
+                })
         return lldp
 
     def get_bgp_neighbors(self): ...
@@ -253,7 +259,7 @@ class ComwareDriver(NetworkDriver):
         structured_output = self._get_structured_output(
             command, "display_lldp_neighbor-information_verbose")
 
-        for entry in structured_output:
+        for lldp_entry in structured_output:
             (local_interface,
              remote_port,
              remote_port_description,
@@ -269,9 +275,8 @@ class ComwareDriver(NetworkDriver):
                 "remote_system_name",
                 "remote_system_desc",
                 "remote_system_capab",
-                "remote_system_enabled_capab")(entry)
-
-            lldp[local_interface] = [{
+                "remote_system_enabled_capab")(lldp_entry)
+            _ = {
                 "parent_interface": parent_interface,
                 "remote_port": remote_port,
                 "remote_port_description": remote_port_description,
@@ -280,8 +285,11 @@ class ComwareDriver(NetworkDriver):
                 "remote_system_description": "".join(remote_system_description),
                 "remote_system_capab": [i.strip() for i in remote_system_capab.split(",")],
                 "remote_system_enabled_capab": [i.strip() for i in remote_system_enabled_capab.split(",")],
-            }]
-
+            }
+            if lldp.get(local_interface) is None:
+                lldp[local_interface] = [_]
+            else:
+                lldp[local_interface].append(_)
         return lldp
 
     def cli(self, commands: List):
@@ -305,12 +313,15 @@ class ComwareDriver(NetworkDriver):
         else:
             command = "display arp"
         structured_output = self._get_structured_output(command, "display_arp")
-        for arp in structured_output:
+        for arp_entry in structured_output:
+            (interface, mac_address, ip, age, ) = itemgetter(
+                "interface", "mac_address", "ip_address", "aging"
+            )(arp_entry)
             entry = {
-                'interface': canonical_interface_name_comware(arp.get("interface")),
-                'mac': mac(arp.get("mac_address")),
-                'ip': arp.get("ip_address"),
-                'age': arp.get("aging")
+                'interface': canonical_interface_name_comware(interface),
+                'mac': mac(mac_address),
+                'ip': ip,
+                'age': float(age),
             }
             arp_table.append(entry)
         return arp_table
@@ -405,12 +416,12 @@ class ComwareDriver(NetworkDriver):
         vlans = {}
         command = "display vlan all"
         structured_output = self._get_structured_output(command)
-        for vlan in structured_output:
-            vlan_name = vlan.get("name")
-            vlan_desc = vlan.get("description")
-            vlans[int(vlan.get("vlan_id"))] = {
+        for vlan_entry in structured_output:
+            vlan_name = vlan_entry.get("name")
+            vlan_desc = vlan_entry.get("description")
+            vlans[int(vlan_entry.get("vlan_id"))] = {
                 "name": vlan_desc if "VLAN " not in vlan_desc and "VLAN " in vlan_name else vlan_name,
-                "interfaces": vlan.get("interfaces")
+                "interfaces": vlan_entry.get("interfaces")
             }
         return vlans
 
