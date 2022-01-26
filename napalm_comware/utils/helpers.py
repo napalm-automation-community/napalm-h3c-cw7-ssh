@@ -85,3 +85,10 @@ def strptime(time_str):
     timeArray = time.strptime(time_str, "%Y-%m-%d %H:%M:%S")
     timestamp = time.mktime(timeArray)
     return timestamp
+
+
+def get_value_from_list_of_dict(_list, dict_key, func_max_or_min):
+    all_item = []
+    for _dict in _list:
+        all_item.append(_dict.get(dict_key))
+    return _list[all_item.index(func_max_or_min(all_item))]

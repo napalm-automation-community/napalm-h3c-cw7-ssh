@@ -18,7 +18,6 @@ Napalm driver for H3C ComwareV7 devices.
 Read https://napalm.readthedocs.io for more information.
 """
 
-from __future__ import print_function
 from operator import itemgetter
 from collections import defaultdict
 from typing import Any, Optional, Dict, List
@@ -40,6 +39,7 @@ from .utils.helpers import (
     parse_time,
     parse_null,
     strptime,
+    get_value_from_list_of_dict,
 )
 
 
@@ -214,7 +214,49 @@ class ComwareDriver(NetworkDriver):
 
     def get_bgp_neighbors(self): ...
 
-    def get_environment(self): ...
+    def _get_memory(self):
+
+        memory = []
+        command = "display memory"
+        structured_output = self._get_structured_output(command)
+        for mem_entry in structured_output:
+            (chassis, slot, total, used, free, free_ratio) = itemgetter(
+                "chassis", "slot", "total", "used", "free", "free_ratio"
+            )(mem_entry)
+            entry = {
+                "chassis": parse_null(chassis, -1, int),
+                "slot": parse_null(slot, -1, int),
+                "total_ram": int(total),
+                "used_ram": int(used),
+                "available_ram": int(free),
+                "free_ratio": float(free_ratio.strip("%")),
+            }
+            memory.append(entry)
+            
+        return memory
+
+    def get_environment(self):
+        environment = {}
+
+        cmd_cpu = ""
+
+        # 有多个板卡的话，返回使用空间最多的，可以提前预防问题
+        # return info of the slot with max memory usage if device has more than one slot. 
+        memory = {}
+        _mem_all = self._get_memory()
+        _mem = get_value_from_list_of_dict(_mem_all, "free_ratio", min)
+        memory["used_ram"] = _mem.get("used_ram")
+        memory["available_ram"] = _mem.get("available_ram")
+        environment["memory"] = memory
+
+
+        cmd_power = ""
+
+        cmd_fan = ""
+
+        cmd_temp = ""
+
+        return environment
 
     def get_interfaces_counters(self):
         counters = {}
@@ -385,7 +427,22 @@ class ComwareDriver(NetworkDriver):
 
     def get_route_to(self, destination="", protocol="", longer=False): ...
 
-    def get_config(self, retrieve="all", full=False, sanitized=False): ...
+    def get_config(self, retrieve="all", full=False, sanitized=False):
+        configs = {"startup": "", "running": "", "candidate": ""}
+        # Not Supported
+        if full:
+            pass
+        if retrieve.lower() in ("running", "all"):
+            command = "display current-configuration"
+            configs["running"] = self.send_command(command)
+        if retrieve.lower() in ("startup", "all"):
+            command = "display saved-configuration"
+            configs["startup"] = self.send_command(command)
+        # Ignore, plaintext will be encrypted.
+        # Remove secret data ? Not Implemented.
+        if sanitized:
+            pass
+        return configs
 
     def get_network_instances(self, name=""): ...
 
