@@ -214,43 +214,104 @@ class ComwareDriver(NetworkDriver):
 
     def get_bgp_neighbors(self): ...
 
-    def _get_memory(self):
+    def _get_memory(self, verbose=True):
 
-        memory = []
+        memory = {}
         command = "display memory"
         structured_output = self._get_structured_output(command)
         for mem_entry in structured_output:
             (chassis, slot, total, used, free, free_ratio) = itemgetter(
                 "chassis", "slot", "total", "used", "free", "free_ratio"
             )(mem_entry)
-            entry = {
-                "chassis": parse_null(chassis, -1, int),
-                "slot": parse_null(slot, -1, int),
+
+            if chassis != "":
+                memory_key = "chassis %s slot %s" % (chassis, slot)
+            elif chassis == "" and slot != "":
+                memory_key = "slot %s" % (slot)
+
+            memory[memory_key] = {
                 "total_ram": int(total),
                 "used_ram": int(used),
                 "available_ram": int(free),
-                "free_ratio": float(free_ratio.strip("%")),
+                "free_ratio": float(free_ratio),
             }
-            memory.append(entry)
-            
-        return memory
+
+        if verbose:
+            return memory
+        else:
+            # 为了适配 napalm api，如果有多个板卡的话，只返回使用空间最多的
+            # return info of the slot with max memory usage if device has more than one slot.
+            _mem = {}
+            _ = get_value_from_list_of_dict(
+                list(memory.values()), "free_ratio", min)
+            _mem["used_ram"] = _.get("used_ram")
+            _mem["available_ram"] = _.get("available_ram")
+            return _mem
+
+    def _get_power(self, verbose=True):
+        # 盒式设备只有 Slot，框式设备只有 Chassis
+        power = {}
+        command = "display power"
+        structured_output = self._get_structured_output(command)
+        for power_entry in structured_output:
+            (chassis, slot, power_id, status, output,) = itemgetter(
+                "chassis", "slot", "power_id", "status", "power"
+            )(power_entry)
+
+            if not verbose:
+                status = True if status.lower() == "normal" else False,
+
+            if slot != "":
+                power_key = "slot %s power %s" % (slot, power_id)
+            if chassis != "":
+                power_key = "chassis %s power %s" % (chassis, power_id)
+
+            power[power_key] = {
+                "status": status,
+                "capacity": -1,
+                "output": output
+            }
+        return power
+
+    def _get_cpu(self, verbose=True):
+        cpu = {}
+        command = "display cpu-usage summary"
+        structured_output = self._get_structured_output(command)
+        for cpu_entry in structured_output:
+            (chassis, slot, cpu_id, five_sec, one_min, five_min) = itemgetter(
+                "chassis", "slot", "cpu_id", "five_sec", "one_min", "five_min"
+            )(cpu_entry)
+
+            if chassis != "":
+                cpu_key = "chassis %s slot %s cpu %s" % (chassis, slot, cpu_id)
+            elif chassis == "" and slot != "":
+                cpu_key = "slot %s cpu %s" % (slot, cpu_id)
+            else:
+                cpu_key = "cpu %s" % (cpu_id)
+
+            if verbose:
+                cpu[cpu_key] = {
+                    "five_sec": float(five_sec),
+                    "one_min": float(one_min),
+                    "five_min": float(five_min),
+                }
+            else:
+                cpu[cpu_key] = {
+                    r"%usage": float(max([five_sec, one_min, five_min])),
+                }
+        return cpu
 
     def get_environment(self):
         environment = {}
 
-        cmd_cpu = ""
+        cpu = self._get_cpu(verbose=False)
+        environment["cpu"] = cpu
 
-        # 有多个板卡的话，返回使用空间最多的，可以提前预防问题
-        # return info of the slot with max memory usage if device has more than one slot. 
-        memory = {}
-        _mem_all = self._get_memory()
-        _mem = get_value_from_list_of_dict(_mem_all, "free_ratio", min)
-        memory["used_ram"] = _mem.get("used_ram")
-        memory["available_ram"] = _mem.get("available_ram")
+        memory = self._get_memory(verbose=False)
         environment["memory"] = memory
 
-
-        cmd_power = ""
+        power = self._get_power()
+        environment["power"] = power
 
         cmd_fan = ""
 

@@ -6,10 +6,10 @@ Value FREE (\d+)
 Value SHARED (\d+)
 Value BUFFER (\d+)
 Value CACHED (\d+)
-Value FREE_RATIO (\S+)
+Value FREE_RATIO ([0-9\-\.]+)
 
 
 Start
   ^Memory\s+statistics
   ^\s*(Chassis\s+${CHASSIS})?\s*Slot\s+${SLOT}
-  ^\s*Mem:\s+${TOTAL}\s+${USED}\s+${FREE}\s+${SHARED}\s+${BUFFER}\s+${CACHED}\s+${FREE_RATIO} -> Record
+  ^\s*Mem:\s+${TOTAL}\s+${USED}\s+${FREE}\s+${SHARED}\s+${BUFFER}\s+${CACHED}\s+${FREE_RATIO}% -> Record
