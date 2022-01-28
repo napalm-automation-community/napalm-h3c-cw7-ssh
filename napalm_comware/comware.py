@@ -20,6 +20,7 @@ Read https://napalm.readthedocs.io for more information.
 
 from operator import itemgetter
 from collections import defaultdict
+from tabnanny import verbose
 from typing import Any, Optional, Dict, List
 import re
 from netmiko.hp.hp_comware import HPComwareBase
@@ -239,7 +240,7 @@ class ComwareDriver(NetworkDriver):
         if verbose:
             return memory
         else:
-            # 为了适配 napalm api，如果有多个板卡的话，只返回使用空间最多的
+            # 为了适配 napalm api（只支持回显一条信息），如果有多个板卡的话，只返回使用空间最多的
             # return info of the slot with max memory usage if device has more than one slot.
             _mem = {}
             _ = get_value_from_list_of_dict(
@@ -259,7 +260,7 @@ class ComwareDriver(NetworkDriver):
             )(power_entry)
 
             if not verbose:
-                status = True if status.lower() == "normal" else False,
+                status = True if status.lower() == "normal" else False
 
             if slot != "":
                 power_key = "slot %s power %s" % (slot, power_id)
@@ -301,6 +302,48 @@ class ComwareDriver(NetworkDriver):
                 }
         return cpu
 
+    def _get_fan(self):
+        fans = {}
+        command = "display fan"
+        structured_output = self._get_structured_output(command)
+        for fan_entry in structured_output:
+            (chassis, slot, fan_id, status,) = itemgetter(
+                "chassis", "slot", "fan_id", "status",
+            )(fan_entry)
+            status = True if status.lower() == "normal" else False
+            if slot != "":
+                fan_key = "slot %s fan %s" % (slot, fan_id)
+            if chassis != "":
+                fan_key = "chassis %s fan %s" % (chassis, fan_id)
+            fans[fan_key] = {
+                "status": status
+            }
+        return fans
+
+    def _get_temperature(self):
+        temperature = {}
+        command = "display environment"
+        structured_output = self._get_structured_output(command)
+        for temp_entry in structured_output:
+            (chassis, slot, sensor, temp, alert, critical) = itemgetter(
+                "chassis", "slot", "sensor", "temperature", "alert", "critical"
+            )(temp_entry)
+            is_alert = True if float(temp) >= float(alert) else False
+            is_critical = True if float(temp) >= float(critical) else False
+
+            if chassis != "":
+                temp_key = "chassis %s slot %s sensor %s" % (
+                    chassis, slot, sensor)
+            else:
+                temp_key = "slot %s sensor %s" % (slot, sensor)
+            temperature[temp_key] = {
+                "temperature": float(temp),
+                "is_alert": is_alert,
+                "is_critical": is_critical,
+            }
+
+        return temperature
+
     def get_environment(self):
         environment = {}
 
@@ -310,12 +353,14 @@ class ComwareDriver(NetworkDriver):
         memory = self._get_memory(verbose=False)
         environment["memory"] = memory
 
-        power = self._get_power()
+        power = self._get_power(verbose=False)
         environment["power"] = power
 
-        cmd_fan = ""
+        fans = self._get_fan()
+        environment["fans"] = fans
 
-        cmd_temp = ""
+        temperature = self._get_temperature()
+        environment["temperature"] = temperature
 
         return environment
 
