@@ -131,14 +131,22 @@ class ComwareDriver(NetworkDriver):
         structured_sn = self._get_structured_output(cmd_sn)
         if isinstance(structured_sn, list) and len(structured_sn) > 0:
             serial_number = []
+            chassis_list = []
+            slot_list = []
             for sn in structured_sn:
+                if sn.get("slot_type") == "Chassis":
+                    chassis_sn = sn.get("serial_number")
+                    if chassis_sn != "":
+                        chassis_list.append(chassis_sn)
                 if sn.get("slot_type") == "Slot":
-                    # 解析结果为空则跳过记录
-                    _sn = sn.get("serial_number")
-                    if _sn != "":
-                        serial_number.append(_sn)
-            if len(serial_number) > 0:
-                serial_number = ",".join(serial_number)
+                    slot_sn = sn.get("serial_number")
+                    if slot_sn != "":
+                        slot_list.append(slot_sn)
+            
+            if len(chassis_list) > 0 :
+                serial_number = ",".join(chassis_list)
+            elif len(chassis_list) == 0 and len(slot_list) > 0:
+                serial_number = ",".join(slot_list)
             else:
                 serial_number = "Unknown"
 
@@ -264,8 +272,10 @@ class ComwareDriver(NetworkDriver):
 
             if slot != "":
                 power_key = "slot %s power %s" % (slot, power_id)
-            if chassis != "":
+            elif chassis != "":
                 power_key = "chassis %s power %s" % (chassis, power_id)
+            else:
+                power_key = "power %s" % (power_id)
 
             power[power_key] = {
                 "status": status,
@@ -284,9 +294,9 @@ class ComwareDriver(NetworkDriver):
             )(cpu_entry)
 
             if chassis != "":
-                cpu_key = "chassis %s slot %s cpu %s" % (chassis, slot, cpu_id)
+                cpu_key = "Chassis %s Slot %s cpu %s" % (chassis, slot, cpu_id)
             elif chassis == "" and slot != "":
-                cpu_key = "slot %s cpu %s" % (slot, cpu_id)
+                cpu_key = "Slot %s cpu %s" % (slot, cpu_id)
             else:
                 cpu_key = "cpu %s" % (cpu_id)
 
@@ -312,9 +322,11 @@ class ComwareDriver(NetworkDriver):
             )(fan_entry)
             status = True if status.lower() == "normal" else False
             if slot != "":
-                fan_key = "slot %s fan %s" % (slot, fan_id)
-            if chassis != "":
-                fan_key = "chassis %s fan %s" % (chassis, fan_id)
+                fan_key = "Slot %s Fan %s" % (slot, fan_id)
+            elif chassis != "":
+                fan_key = "Chassis %s Fan %s" % (chassis, fan_id)
+            else:
+                fan_key = "Fan %s" % (fan_id)
             fans[fan_key] = {
                 "status": status
             }
