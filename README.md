@@ -48,7 +48,7 @@ pip install napalm-comware-ssh
 ## Upgrading
 
 ```
-pip install napalm -U
+pip install napalm-comware-ssh -U
 ```
 
 ## Use
