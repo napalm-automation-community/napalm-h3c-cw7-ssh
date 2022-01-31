@@ -13,17 +13,14 @@
 # the License.
 
 """
-Napalm driver for H3C ComwareV7 devices.
+Napalm driver for H3C/HPE ComwareV7 devices.
 
 Read https://napalm.readthedocs.io for more information.
 """
 
 from operator import itemgetter
 from collections import defaultdict
-from tabnanny import verbose
 from typing import Any, Optional, Dict, List
-import re
-from netmiko.hp.hp_comware import HPComwareBase
 from napalm.base.base import NetworkDriver
 from napalm.base.exceptions import (
     ConnectionClosedException,
@@ -35,6 +32,7 @@ from napalm.base.helpers import (
     mac,
 )
 from napalm.base.netmiko_helpers import netmiko_args
+from netmiko.hp.hp_comware import HPComwareBase
 from .utils.helpers import (
     canonical_interface_name_comware,
     parse_time,

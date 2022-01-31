@@ -14,5 +14,5 @@
 
 from napalm_comware.comware import ComwareDriver
 
-__all__ = ('ComwareDriver',)
-__version__ = '0.0.1'
+__all__ = ("ComwareDriver",)
+__version__ = "0.1.0"
