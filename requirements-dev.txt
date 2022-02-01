@@ -1,0 +1,4 @@
+twine
+setuptools
+build
+-r requirements.txt

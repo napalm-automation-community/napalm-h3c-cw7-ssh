@@ -12,7 +12,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from napalm_comware.comware import ComwareDriver
+from napalm_h3c_comware.comware import ComwareDriver
 
 __all__ = ("ComwareDriver",)
-__version__ = "0.1.0"
+__version__ = "0.1.1"

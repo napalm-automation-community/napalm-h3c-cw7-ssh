@@ -14,22 +14,22 @@ with open("README.md", "r", encoding="utf-8") as fh:
 __author__ = "Eric Wu <vip@xdai.vip>"
 
 # get version without importing
-with open("napalm_comware/__init__.py", "r") as f:
+with open("napalm_h3c_comware/__init__.py", "r") as f:
     VERSION = str(re.search('__version__ = "(.+?)"', f.read()).group(1))
 
 
 setup(
-    name="napalm-comware-ssh",
+    name="napalm-h3c-comware",
     version=VERSION,
     author="Eric Wu",
     author_email="vip@xdai.vip",
-    description="NAPALM driver for H3C/HPE Comware V7 network devices.",
+    description="NAPALM driver for H3C Comware V7 network devices, over ssh.",
     license="Apache 2.0",
     long_description_content_type="text/markdown",
     long_description=long_description,
-    url="https://github.com/xdai555/napalm-comware-ssh",
+    url="https://github.com/napalm-automation-community/napalm-h3c-cw7-ssh/",
     project_urls={
-        "Bug Tracker": "https://github.com/xdai555/napalm-comware-ssh/issues",
+        "Bug Tracker": "https://github.com/napalm-automation-community/napalm-h3c-cw7-ssh/issues",
     },
     classifiers=[
         "Topic :: Utilities",

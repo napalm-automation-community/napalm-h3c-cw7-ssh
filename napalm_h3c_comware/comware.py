@@ -13,7 +13,7 @@
 # the License.
 
 """
-Napalm driver for H3C/HPE ComwareV7 devices.
+Napalm driver for H3C ComwareV7 devices.
 
 Read https://napalm.readthedocs.io for more information.
 """
@@ -22,11 +22,6 @@ from operator import itemgetter
 from collections import defaultdict
 from typing import Any, Optional, Dict, List
 from napalm.base.base import NetworkDriver
-from napalm.base.exceptions import (
-    ConnectionClosedException,
-    ConnectionException,
-)
-import napalm.base.constants as C
 from napalm.base.helpers import (
     textfsm_extractor,
     mac,
@@ -43,7 +38,7 @@ from .utils.helpers import (
 
 
 class ComwareDriver(NetworkDriver):
-    """Napalm driver for H3C/HP Comware7 network devices (using ssh)."""
+    """Napalm driver for H3C Comware7 network devices (using ssh)."""
 
     def __init__(
             self,
@@ -72,7 +67,7 @@ class ComwareDriver(NetworkDriver):
     def close(self):
         self._netmiko_close()
 
-    def send_command(self, command, *args, **kwargs):
+    def send_command(self, command: str, *args, **kwargs):
         return self.device.send_command(command, *args, **kwargs)
 
     def is_alive(self):
@@ -140,8 +135,8 @@ class ComwareDriver(NetworkDriver):
                     slot_sn = sn.get("serial_number")
                     if slot_sn != "":
                         slot_list.append(slot_sn)
-            
-            if len(chassis_list) > 0 :
+
+            if len(chassis_list) > 0:
                 serial_number = ",".join(chassis_list)
             elif len(chassis_list) == 0 and len(slot_list) > 0:
                 serial_number = ",".join(slot_list)
@@ -403,7 +398,7 @@ class ComwareDriver(NetworkDriver):
 
         return counters
 
-    def get_lldp_neighbors_detail(self, interface=""):
+    def get_lldp_neighbors_detail(self, interface: str = ""):
         lldp = {}
         # `parent_interface` is not supported
         parent_interface = ""
@@ -560,7 +555,7 @@ class ComwareDriver(NetworkDriver):
             pass
         return configs
 
-    def get_network_instances(self, name=""): ...
+    def get_network_instances(self, name: str = ""): ...
 
     def get_vlans(self):
         """
