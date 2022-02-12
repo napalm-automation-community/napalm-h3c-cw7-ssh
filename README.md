@@ -1,5 +1,7 @@
 # napalm-h3c-cw7-ssh
 
+This repository is published in https://github.com/napalm-automation-community/napalm-h3c-cw7-ssh
+
 ## NAPALM
 
 [NAPALM](https://github.com/napalm-automation/napalm) (Network Automation and Programmability Abstraction Layer with Multivendor support) is a Python library that implements a set of functions to interact with different router vendor devices using a unified API.
