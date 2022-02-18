@@ -15,4 +15,4 @@
 from napalm_h3c_comware.comware import ComwareDriver
 
 __all__ = ("ComwareDriver",)
-__version__ = "0.1.2"
+__version__ = "0.1.4"
