@@ -479,7 +479,23 @@ class ComwareDriver(NetworkDriver):
             arp_table.append(entry)
         return arp_table
 
-    def get_interfaces_ip(self): ...
+    def get_interfaces_ip(self):
+        interfaces = {}
+        command = "display ip interface"
+        structured_output = self._get_structured_output(command)
+        for iface_entry in structured_output:
+            interface, ip_list = itemgetter(
+                "interface", "ip_address"
+            )(iface_entry)
+            ipv4 = {}
+            if len(ip_list) > 0:
+                for ip in ip_list:
+                    ipv4[ip.split("/")[0]
+                        ] = {"prefix_length": int(ip.split("/")[1])}
+                interfaces[interface] = {
+                    "ipv4": ipv4
+                }
+        return interfaces
 
     def get_mac_address_move_table(self):
         mac_address_move_table = []
