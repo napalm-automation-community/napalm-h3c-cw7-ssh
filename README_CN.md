@@ -1,5 +1,9 @@
 # napalm-h3c-cw7-ssh
 
+![](https://img.shields.io/pypi/v/napalm-h3c-comware?style=flat-square)
+![](https://img.shields.io/pypi/pyversions/napalm-h3c-comware?style=flat-square)
+![](https://img.shields.io/pypi/dm/napalm-h3c-comware?style=flat-square)
+
 [English](README.md) | [中文](README_CN.md)
 
 本仓库同步发布在 https://github.com/napalm-automation-community/napalm-h3c-cw7-ssh 
