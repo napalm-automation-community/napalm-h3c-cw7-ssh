@@ -32,7 +32,7 @@ Looking forward to your testing and feedback :).
 - :white_check_mark: get_facts()
 - :white_check_mark: get_interfaces()
 - :white_check_mark: get_interfaces_ip()
-- :white_check_mark: get_interfaces_counters()
+- ~~:white_check_mark: get_interfaces_counters():x:needs to be rewritten~~
 - :white_check_mark: get_lldp_neighbors()
 - :white_check_mark: get_lldp_neighbors_detail()
 - :white_check_mark: get_environment()

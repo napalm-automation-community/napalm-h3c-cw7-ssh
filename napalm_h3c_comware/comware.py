@@ -369,34 +369,36 @@ class ComwareDriver(NetworkDriver):
 
         return environment
 
-    def get_interfaces_counters(self):
-        counters = {}
-        keys = (
-            "tx_errors", "rx_errors", "rx_crc",
-            "tx_discards", "rx_discards",
-            "tx_octets", "rx_octets",
-            "tx_packets", "rx_packets",
-            "tx_unicast_packets", "rx_unicast_packets",
-            "tx_multicast_packets", "rx_multicast_packets",
-            "tx_broadcast_packets", "rx_broadcast_packets",
-        )
-        structured_int_info = self._get_structured_output("display interface")
+    # TODO: 从 textfsm 的 display interface 模板中移除，模板无法支持太多类型的输出，重构为正则表达式比较好
 
-        for interface in structured_int_info:
-            values = itemgetter(
-                "tx_errors", "rx_errors", "rx_crc",
-                "tx_aborts", "rx_aborts",
-                "tx_bytes", "rx_bytes",
-                "tx_pkts", "rx_pkts",
-                "tx_unicast", "rx_unicast",
-                "tx_multicast", "rx_multicast",
-                "tx_broadcast", "rx_broadcast",
-            )(interface)
+    # def get_interfaces_counters(self):
+    #     counters = {}
+    #     keys = (
+    #         "tx_errors", "rx_errors", "rx_crc",
+    #         "tx_discards", "rx_discards",
+    #         "tx_octets", "rx_octets",
+    #         "tx_packets", "rx_packets",
+    #         "tx_unicast_packets", "rx_unicast_packets",
+    #         "tx_multicast_packets", "rx_multicast_packets",
+    #         "tx_broadcast_packets", "rx_broadcast_packets",
+    #     )
+    #     structured_int_info = self._get_structured_output("display interface")
 
-            values = (parse_null(value, -1, int) for value in values)
-            counters[interface.get("interface")] = dict(zip(keys, values))
+    #     for interface in structured_int_info:
+    #         values = itemgetter(
+    #             "tx_errors", "rx_errors", "rx_crc",
+    #             "tx_aborts", "rx_aborts",
+    #             "tx_bytes", "rx_bytes",
+    #             "tx_pkts", "rx_pkts",
+    #             "tx_unicast", "rx_unicast",
+    #             "tx_multicast", "rx_multicast",
+    #             "tx_broadcast", "rx_broadcast",
+    #         )(interface)
 
-        return counters
+    #         values = (parse_null(value, -1, int) for value in values)
+    #         counters[interface.get("interface")] = dict(zip(keys, values))
+
+    #     return counters
 
     def get_lldp_neighbors_detail(self, interface: str = ""):
         lldp = {}

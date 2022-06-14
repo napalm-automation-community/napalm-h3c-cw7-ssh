@@ -30,7 +30,7 @@
 - :white_check_mark: get_facts()：获取设备基础信息，如型号、软件版本、序列号等
 - :white_check_mark: get_interfaces()：获取所有接口列表
 - :white_check_mark: get_interfaces_ip()：获取当前存在 IP 地址的接口列表，目前只支持 IPv4
-- :white_check_mark: get_interfaces_counters()：获取接口的计数信息，包括收发包、收发字节、错包、丢包、CRC 等
+- ~~:white_check_mark: get_interfaces_counters()：获取接口的计数信息，包括收发包、收发字节、错包、丢包、CRC 等:x:需要重写~~
 - :white_check_mark: get_lldp_neighbors()：获取 LLDP 邻居信息
 - :white_check_mark: get_lldp_neighbors_detail()：获取 LLDP 的详细信息，包括对端的系统名称及描述、接口名称及描述等
 - :white_check_mark: get_environment()：获取设备运行信息，包括 CPU、内存、电源、风扇、温度等状态
